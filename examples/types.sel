@@ -1,0 +1,8 @@
+// Int;
+// [Int];
+// (Int, String);
+// ([Int], (String, [String]));
+// ((Int, Int), [(String, String)], u64);
+fun (Int, String) -> String;
+[fun Int -> Int];
+[Predicate];

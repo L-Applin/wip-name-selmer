@@ -1,0 +1,128 @@
+/*
+  The syntax
+  `name: type = value;`
+  specifies that a variable named `name` is of the type `type` and is to receive the value `value.`
+  It was proposed by Sean Barrett. Some examples:
+  ```selmer
+    my_var: Int = 42;
+    some_str: String = "This is a String";
+    hundreath_prime: s64 = 541;
+  ```
+
+  if `::` is used instead of `:`, the variable is declared as constant and cannot be reassigned
+    `a_const :: Int = 9;`
+
+  In all cases, the type can be ommited and type will be infered, if possible. For variables:
+    `my_infered_var := 64;`
+
+  And for constants:
+    `my_infered_const :: 4;`
+
+  For numebrs, if no decimal is written, it will be infered to `Int` (signed 64, alias for s64). For
+  float, it will be inferred to `float` (IEEE 64 bit floating point number, alias for `f64`)
+*/
+
+// Variable and constant declaration
+print("=====   VARIABVLES AND CONSTANTS   =====");
+
+my_var: Int = 42;
+some_str: String = "This is a String";
+hundreath_prime: s64 = 541;
+a_const :: Int = 9;`
+my_infered_var := 64
+my_const :: 64
+
+print(my_var);
+print(some_str);
+print(hundreath_prime);
+print(a_const);
+print(my_infered_var);
+print(my_infered_const);
+
+// Value can be ommited, it is a declaration without initialization
+no_init: Int;
+name: String;
+
+/*
+  function declarations looks like this:
+
+    sum :: fun (Int, Int) -> Int = (x, y) -> {
+      return x + y;
+    }
+
+  the `=` can be replaced by a new line
+
+    sum :: fun (Int, Int) -> Int
+    (x, y) -> {
+      return x + y;
+    }
+
+  types can also be specified again at the argument level, if required
+
+    sum :: fun (Int, Int) -> Int
+    (x: Int, y: Int) -> {
+      return x + y;
+    }
+
+  This is specific syntax usefull because it is exactly the same as the one typically used for lambda
+
+    handler_for( "my.event.queue", (input: Model) -> do_stuff_with(input) );
+
+  It can also be usefull when specfying type aliases for function types
+
+    Predicate: type = fun Int -> Bool
+    is_even :: Predicate = (x: Int) -> x % 2 == 0.;
+
+  If the function body consist of only one expression, the curly brackets and return statement can be ommitted
+
+    sum :: fun (Int, Int) -> Int
+    (x, y) -> x + y;
+
+  This lets the body of the function  be very terce, while keeping the type information of the function.
+
+*/
+
+// functions
+print("=====   FUNCTIONS   =====");
+
+sum :: fun (Int, Int) -> Int
+sum (x, y) -> x + y;
+res: Int = sum(1, 2);
+print(res);
+
+mult :: fun (Int, Int) -> Int = (x, y) -> x * y;
+print(mul(42, 10));
+
+Predicate: type = fun Int -> Bool
+is_even :: Predicate = (x: Int) -> x % 2 == 0;
+var: Bool = is_even(42);
+print(var);
+
+/*
+
+struct/new types declaration :
+
+  Person :: Type  = {
+    name:    String;
+    age:     Int;
+    friends: [Person];
+  };
+
+the `=` may be ommited
+
+  Person :: Type {
+    name:    String;
+    age:     Int;
+    friends: [Person];
+  };
+
+new types *MUST* be declared as constant (using `::`)
+
+types can also be aliased:
+
+Flag :: Type = Int;
+Predicate :: Type = Int -> Bool;
+
+Tuple :: Type = (T, (U, U), V)
+
+*/
