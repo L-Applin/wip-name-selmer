@@ -5,6 +5,7 @@ import static ca.applin.selmer.CompilerContext._DEBUG;
 import static ca.applin.selmer.ast.Ast_Literral_Expr.from_lexer_token;
 import static ca.applin.selmer.lexer.LexerToken.Lexer_Token_Type.*;
 import static com.applin.selmer.util.Maybe.just;
+import static com.applin.selmer.util.Maybe.nothing;
 
 import ca.applin.selmer.CompilerContext;
 import ca.applin.selmer.NotYetImplementedException;
@@ -27,6 +28,7 @@ import ca.applin.selmer.typer.ArrayType;
 import ca.applin.selmer.typer.FunctionType;
 import ca.applin.selmer.typer.TupleType;
 import ca.applin.selmer.typer.Type;
+import com.applin.selmer.util.Maybe;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -53,6 +55,12 @@ public class Parser {
         if (tokens.end()) {
             return compilerContext.ast;
         }
+
+        if (tokens.current().token_type == NEW_LINE) {
+            tokens.advance();
+            return parse();
+        }
+
         // @Lang : do we really want to end each parsing unit to end with a semi colon ?
         if (is_compiler_instruction()) {
             Ast_Compiler_Instruction ast = parse_compiler_istructions();
@@ -60,7 +68,7 @@ public class Parser {
         } else if (tokens.current().token_type == IDENTIFIER) {
             if (is_variable_declaration()) {
                 Ast_Variable_Decl ast = parse_variable_decleration();
-                compilerContext.ast.add_next(ast);
+                compilerContext.add_to_ast(ast);
             } else if (is_struct_declaration()) {
                 Ast_Struct_Decl ast = parse_struct_declaration();
                 compilerContext.ast.add_next(ast);
@@ -92,7 +100,28 @@ public class Parser {
     }
 
     private Ast_Variable_Decl parse_variable_decleration() {
-        return TODO();
+        assert tokens.current().token_type == IDENTIFIER;
+        LexerToken identifier = tokens.current();
+
+        Ast_Variable_Decl variable_decl = switch (tokens.peek_next().token_type) {
+            case COLON -> {
+                tokens.advance(2);
+                List<LexerToken> type_tokens = tokens.take_while(is_not(EQUALS));
+                Type type = parse_type(type_tokens);
+                while (tokens.current().token_type != SEMI_COLON && tokens.current().token_type != EQUALS) {
+                    tokens.advance();
+                }
+                Maybe<Ast_Expression> init_expr = nothing();
+                if (tokens.current().token_type == EQUALS) {
+                    tokens.advance();
+                    init_expr = just(parse_expr());
+                }
+                yield new Ast_Variable_Decl(identifier.value, type, init_expr, false);
+            }
+
+            default -> compilerContext.emit_error(identifier, "Error in variable declaration.");
+        };
+        return variable_decl;
     }
 
     private boolean is_variable_declaration() {
@@ -116,46 +145,6 @@ public class Parser {
         return it -> it.token_type != tok_type;
     }
 
-    public Ast_Variable_Decl parse_var_decl() {
-        assert tokens.current().token_type == IDENTIFIER :
-                "variable parse must start with an identifier but started with " + tokens.current().toString();
-        tokens.advance();
-
-        LexerToken current_token = tokens.current();
-        String identifier = current_token.value;
-        return switch (current_token.token_type) {
-
-            case COLON -> {
-                tokens.advance();
-                List<LexerToken> toks = tokens.take_while(t -> t.token_type != SEMI_COLON);
-                Type type_info = parse_type(toks);
-                LexerToken seperator = tokens.current();
-                boolean is_const = switch (seperator.token_type) {
-                    case COLON  -> true;
-                    case EQUALS -> false;
-                    default -> compilerContext.emit_error(filename, current_token.line, current_token.col,
-                        "cannot parse variable declaration for variable '%s'".formatted(current_token.value), ParserException.class);
-                };
-                yield TODO();
-
-            }
-
-            case COLON_EQUALS -> {
-                tokens.advance();
-                Ast_Expression init_expr = parse_expr();
-                yield new Ast_Variable_Decl(identifier, init_expr.type_info, just(init_expr), false);
-            }
-
-            case DOUBLE_COLON -> {
-                tokens.advance();
-                Ast_Expression init_expr= parse_expr();
-                yield new Ast_Variable_Decl(identifier, init_expr.type_info, just(init_expr), true);
-            }
-
-            default -> compilerContext.emit_error(filename, current_token.line, current_token.col,
-                    "Cannot parse variable declaration for variable '%s'".formatted(current_token.value), ParserException.class);
-        };
-    }
 
     // @Improvement, do we support Tuples types?
     /**
@@ -374,10 +363,7 @@ public class Parser {
         Lexer lexer = new Lexer("/Users/Applin/Documents/develop/selmer/examples/types.sel", new CompilerContext());
         LexerTokenStream tokens = lexer.lex();
         Parser parser = new Parser(tokens, lexer.compilerContext, lexer.filename);
-        parser.tokens.split().forEach( str -> {
-            Type type = parser.parse_type(str.tokens);
-            System.out.println(type);
-        });
+        System.out.println(parser.parse().toStringIndented(0));
     }
 
 }

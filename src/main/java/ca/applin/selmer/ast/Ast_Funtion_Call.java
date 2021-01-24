@@ -2,6 +2,8 @@ package ca.applin.selmer.ast;
 
 import ca.applin.selmer.typer.Type;
 import java.util.List;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 public class Ast_Funtion_Call extends Ast_Expression {
     public String                       function_name;
@@ -22,7 +24,9 @@ public class Ast_Funtion_Call extends Ast_Expression {
 
     @Override
     public String toString() {
-        return function_name;
+        return "(Function_call %s (%s))"
+                .formatted(function_name, args.stream().map(Ast::toString).collect(
+                        Collectors.joining(", ")));
     }
 
     @Override

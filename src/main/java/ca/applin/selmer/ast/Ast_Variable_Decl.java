@@ -15,4 +15,25 @@ public class Ast_Variable_Decl extends Ast_Declaration {
         this.initialization = initialization;
         this.is_const = is_const;
     }
+
+
+    @Override
+    public String toStringIndented(int level) {
+        String self = DEFAULT_DEPTH_PER_LEVEL.repeat(level) + "Variable declaration: " + identifier
+                + "\n" + DEFAULT_DEPTH_PER_LEVEL.repeat(level + 1) + type.toString()
+                + "\n" + initialization
+                             .map(ast -> ast.toStringIndented(level + 1))
+                            .getOrElse(DEFAULT_DEPTH_PER_LEVEL.repeat(level + 1) + "<no init>");
+        if (this.next != null) {
+            String next_str = this.next.toStringIndented(level);
+            return self + next_str;
+        }
+        return self ;
+    }
+
+    @Override
+    public String toString() {
+        return "Ast_Variable_Decleration %s%s: %s, init: %s".formatted(
+                is_const ? "(const) " : "", identifier, type.toString(), initialization.isJust() ? "true" : "false");
+    }
 }

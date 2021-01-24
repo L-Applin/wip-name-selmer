@@ -75,7 +75,7 @@ public class Ast_Operator extends Ast_Expression {
                      case DOUBLE_MINUS -> Operator.PRE_DECR;
                      case PLUS -> Operator.PLUS;
                      case PLUS_EQUALS -> Operator.PLUS_EQ;
-                    case DOUBLE_PLUS -> Operator.PRE_INCRE;
+                     case DOUBLE_PLUS -> Operator.PRE_INCRE;
                      case EQUALS -> Operator.EQ;
                      case NOT_EQUALS -> Operator.NOT_EQ;
                      case TIMES -> Operator.TIMES;
@@ -104,4 +104,8 @@ public class Ast_Operator extends Ast_Expression {
         this.operator = operator;
     }
 
+    @Override
+    public String toString() {
+        return "Operator " + operator.toString();
+    }
 }

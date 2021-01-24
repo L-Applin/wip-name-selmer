@@ -52,4 +52,9 @@ public class Ast_Binop extends Ast_Operator {
         return DEFAULT_DEPTH_PER_LEVEL.repeat(level) + "Binop: " + operator.name() + '\n' +
                 left_str + right_str + '\n';
     }
+
+    @Override
+    public String toString() {
+        return "(Binop %s: (%s, %s))".formatted(operator.toString(), left.toString(), right.toString());
+    }
 }

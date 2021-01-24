@@ -3,6 +3,9 @@
 // (Int, String);
 // ([Int], (String, [String]));
 // ((Int, Int), [(String, String)], u64);
-fun (Int, String) -> String;
-[fun Int -> Int];
-[Predicate];
+// fun (Int, String) -> String;
+// [fun Int -> Int];
+// [Predicate];
+// my_var: Int = 3 + 4 - 5 * 6;
+my_var_3: Int = f(12);
+my_var_2 : Int = (7 + 8) * 9;

@@ -31,4 +31,13 @@ public class CompilerContext {
     public void not_yet_implemented(String msg) {
         throw new NotYetImplementedException(msg);
     }
+
+
+    public void add_to_ast(Ast ast) {
+        if (this.ast == null) {
+            this.ast = ast;
+        } else {
+            this.ast.add_next(ast);
+        }
+    }
 }

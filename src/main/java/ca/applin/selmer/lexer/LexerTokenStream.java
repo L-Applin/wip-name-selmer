@@ -51,7 +51,7 @@ public class LexerTokenStream implements Iterable<LexerToken> {
     }
 
     public void advance() {
-        advance(0);
+        advance(1);
     }
 
     // replace by sublist
@@ -95,7 +95,7 @@ public class LexerTokenStream implements Iterable<LexerToken> {
     }
 
     public boolean end() {
-        return current_index - 1 >= tokens.size();
+        return current_index >= tokens.size();
     }
 
 
