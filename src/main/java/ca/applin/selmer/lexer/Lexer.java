@@ -6,6 +6,7 @@ import static ca.applin.selmer.lexer.Lexer.RESERVED_KEYWORD.*;
 import static com.applin.selmer.util.StringUtils.str_dup_escape;
 
 import ca.applin.selmer.CompilerContext;
+import ca.applin.selmer.typer.Type;
 import com.applin.selmer.util.StringUtils;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
@@ -23,7 +24,7 @@ public class Lexer {
     enum RESERVED_KEYWORD {
         IF("if"), U8("u8"), S8("s8"),
         FUN("fun"), NEW("new"), FOR("for"), U16("u16"), U32("u32"), U64("u64"), S16("s16"), S32("s32"), S64("s64"), F32("f32"), F64("f64"), INT("Int"),
-        TYPE("type"), ELSE("else"), VOID("void"),
+        TYPE("type"), ELSE("else"), VOID("void"), CHAR("char"),
         WHILE("while"), DEFER("defer"), INDEX("index"),
         STRUCT("struct"), ASSERT("assert"), DELETE("delete"), RETURN("return"), STRING("String");
         final String value;
@@ -77,7 +78,7 @@ public class Lexer {
                         continue;
                     }
 
-                    case '\'' : {
+                case '\'' : {
                         int len = make_char_litteral();
                         advance(len + 2); // for the quotes
                         assert file[pos - 1] == '\'';
@@ -167,6 +168,7 @@ public class Lexer {
                         case "type" -> new LexerToken(KEYWORD_TYPE, TYPE.value, filename, line, col);
                         case "else" -> new LexerToken(KEYWORD_ELSE, ELSE.value, filename, line, col);
                         case "void" -> new LexerToken(KEYWORD_VOID, VOID.value, filename, line, col);
+                        case "char" -> new LexerToken(PRIMITIVE_CHAR, CHAR.value, filename, line, col);
                         default -> new LexerToken(IDENTIFIER, str_value, filename, line, col);
                     };
                 }
@@ -403,6 +405,7 @@ public class Lexer {
                 case '&' -> new LexerToken(DOUBLE_AMPERSAND, "&&", filename, line, col);
                 default  -> new LexerToken(AMPERSAND, "&", filename, line, col);
             };
+            case '@' -> new LexerToken(AT_SIGN, "@", filename, line, col);
             case '!' -> peek_next() == '='
                     ? new LexerToken(NOT_EQUALS, "!=", filename, line, col)
                     : compilerContext.emit_error(filename, line, col, "cannot parse token after '!'", LexerException.class);

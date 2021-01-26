@@ -106,6 +106,6 @@ public class Ast_Operator extends Ast_Expression {
 
     @Override
     public String toString() {
-        return "Operator " + operator.toString();
+        return "(Op " + operator.toString() + ")";
     }
 }

@@ -55,6 +55,6 @@ public class Ast_Binop extends Ast_Operator {
 
     @Override
     public String toString() {
-        return "(Binop %s: (%s, %s))".formatted(operator.toString(), left.toString(), right.toString());
+        return "(Binop (%s %s %s))".formatted(operator.toString(), left.toString(), right.toString());
     }
 }

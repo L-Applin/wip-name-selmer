@@ -1,8 +1,8 @@
 package ca.applin.selmer;
 
-import ca.applin.selmer.ast.Ast;
-import ca.applin.selmer.lexer.LexerException;
+import ca.applin.selmer.ast.Ast;import ca.applin.selmer.lexer.LexerException;
 import ca.applin.selmer.lexer.LexerToken;
+import java.io.PrintStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
@@ -28,16 +28,20 @@ public class CompilerContext {
         throw new NotYetImplementedException();
     }
 
-    public void not_yet_implemented(String msg) {
-        throw new NotYetImplementedException(msg);
-    }
-
 
     public void add_to_ast(Ast ast) {
         if (this.ast == null) {
             this.ast = ast;
         } else {
             this.ast.add_next(ast);
+        }
+    }
+
+    public void printy_ast(PrintStream ps) {
+        Ast ast = this.ast;
+        while (ast != null) {
+            ps.println(ast.toStringIndented(0));
+            ast = ast.next;
         }
     }
 }

@@ -98,6 +98,13 @@ public class LexerTokenStream implements Iterable<LexerToken> {
         return current_index >= tokens.size();
     }
 
+    public void assert_current(Lexer_Token_Type token_type, String msg) {
+        assert current().token_type == token_type : msg;
+    }
+
+    public void assert_current(Lexer_Token_Type token_type) {
+        assert current().token_type == token_type;
+    }
 
     @Override
     public Iterator<LexerToken> iterator() {

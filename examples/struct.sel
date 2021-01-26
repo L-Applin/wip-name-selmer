@@ -1,27 +1,9 @@
-#import Selmer.basic;
-
-Human :: type {
-
-};
-
 Person :: type {
-  with human: Human;
-  age:        Int;
-  name:       String;
-  flag:       Flag;
-  mother:     @Person;
-  father:     @Person;
+  human:      Human;
+  age:        Int    = 2 * 18;
+  name:       String = "Olivier";
+  flag:       Flag   = 0x0000;
+  mother:     Person;
+  father:     Person;
 };
 
-zero :: Int = 0;
-
-Predicate :: type = fun Person -> Bool;
-Flag :: type = u64;
-
-is_olivier :: fun Person -> Bool = (p: Person) -> {
-  return p.name.lower_case() == "olivier";
-};
-
-is_olivier_case: fun Person -> Bool
-case ({ name: "Olivier" }) -> { true };
-case p ->  { false }

@@ -39,6 +39,7 @@ public class LexerToken {
         KEYWORD_ASSERT,
         KEYWORD_DELETE,
         KEYWORD_RETURN,
+        KEYWORD_WITH,
         OPEN_PAREN,
         CLOSE_PAREN,
         OPEN_SQUARE_BRACKET,
@@ -81,6 +82,7 @@ public class LexerToken {
         DOUBLE_PIPE(OPERATOR_FLAG | BOOLEAN_OPERATOR_FLAG),
         AMPERSAND(OPERATOR_FLAG),
         DOUBLE_AMPERSAND(OPERATOR_FLAG | BOOLEAN_OPERATOR_FLAG),
+        AT_SIGN,
         INTEGER_LITTERAL(LITTERAL_FLAG | NUMERIC_FLAG),
         FLOAT_LITTERAL(LITTERAL_FLAG | NUMERIC_FLAG),
         HEX_LITTERAL(LITTERAL_FLAG | NUMERIC_FLAG),
@@ -98,8 +100,8 @@ public class LexerToken {
         PRIMITIVE_F32(PRIMITIVE_TYPE_FLAG),
         PRIMITIVE_F64(PRIMITIVE_TYPE_FLAG),
         PRIMITIVE_INT(PRIMITIVE_TYPE_FLAG),
-        PRIMITIVE_STRING
-        ;
+        PRIMITIVE_CHAR(PRIMITIVE_TYPE_FLAG),
+        PRIMITIVE_STRING;
 
         public final int precedence;
         public final int flag;

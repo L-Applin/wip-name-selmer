@@ -6,8 +6,11 @@ import ca.applin.selmer.typer.Type;
 public class Ast_Literral_Expr extends Ast_Expression {
 
     public static Ast_Literral_Expr from_lexer_token(LexerToken token) {
-
-        return new Ast_Literral_Expr(token.value, token.filename, token.line, token.col);
+        Type type = Type.UNKNOWN;
+        if (token.is_litteral()) {
+            type = Type.get_type_from_litteral(token);
+        }
+        return new Ast_Literral_Expr(token.value, type, token.filename, token.line, token.col);
     }
 
     public String litteral_value;
@@ -34,5 +37,10 @@ public class Ast_Literral_Expr extends Ast_Expression {
     @Override
     public String toStringIndented(int level) {
         return DEFAULT_DEPTH_PER_LEVEL.repeat(level) + "Litteral: [" + litteral_value + "]\n";
+    }
+
+    @Override
+    public String toString() {
+        return "(Litteral " + litteral_value + ")";
     }
 }

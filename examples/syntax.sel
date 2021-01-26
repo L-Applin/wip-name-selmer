@@ -30,7 +30,7 @@ some_str: String = "This is a String";
 hundreath_prime: s64 = 541;
 a_const :: Int = 9;`
 my_infered_var := 64
-my_const :: 64
+my_infered_const :: 64
 
 print(my_var);
 print(some_str);
@@ -66,7 +66,12 @@ name: String;
 
   This is specific syntax usefull because it is exactly the same as the one typically used for lambda
 
-    handler_for( "my.event.queue", (input: Model) -> do_stuff_with(input) );
+    handler_for( "my.event.queue", (input: Model) -> /* do stuff with input */ );
+
+  can easily becomes
+    my_handler :: fun (Model) -> ()
+    (input: Model) -> { /* do stuff with input */ }
+    handler_for("my.event.queue", my_handler);
 
   It can also be usefull when specfying type aliases for function types
 
@@ -126,3 +131,30 @@ Predicate :: Type = Int -> Bool;
 Tuple :: Type = (T, (U, U), V)
 
 */
+
+Person :: Type {
+ name:    String;
+ age:     Int;
+ friends: [Person];
+};
+
+// types, structs
+PersonPredicate :: Type = Person -> Bool;
+
+is_old_enough :: PersonPredicate
+(person: Person) -> person.age >= 18;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

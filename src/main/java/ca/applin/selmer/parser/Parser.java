@@ -14,8 +14,10 @@ import ca.applin.selmer.ast.Ast_Binop;
 import ca.applin.selmer.ast.Ast_Compiler_Instruction;
 import ca.applin.selmer.ast.Ast_Expression;
 import ca.applin.selmer.ast.Ast_Funtion_Call;
+import ca.applin.selmer.ast.Ast_Literral_Expr;
 import ca.applin.selmer.ast.Ast_Operator.Operator;
 import ca.applin.selmer.ast.Ast_Struct_Decl;
+import ca.applin.selmer.ast.Ast_Struct_Member;
 import ca.applin.selmer.ast.Ast_Type_Declaration;
 import ca.applin.selmer.ast.Ast_Unop;
 import ca.applin.selmer.ast.Ast_Variable_Decl;
@@ -39,7 +41,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class Parser {
-
     public LexerTokenStream tokens;
     public CompilerContext compilerContext;
     public String filename;
@@ -56,9 +57,8 @@ public class Parser {
             return compilerContext.ast;
         }
 
-        if (tokens.current().token_type == NEW_LINE) {
+        while (tokens.current().token_type == NEW_LINE) {
             tokens.advance();
-            return parse();
         }
 
         // @Lang : do we really want to end each parsing unit to end with a semi colon ?
@@ -71,9 +71,12 @@ public class Parser {
                 compilerContext.add_to_ast(ast);
             } else if (is_struct_declaration()) {
                 Ast_Struct_Decl ast = parse_struct_declaration();
-                compilerContext.ast.add_next(ast);
+                compilerContext.add_to_ast(ast);
+                if (tokens.current().token_type == SEMI_COLON) tokens.advance();
             } else if (is_type_declaration()) {
                 Ast_Type_Declaration ast = parse_type_declaration();
+                compilerContext.add_to_ast(ast);
+                if (tokens.current().token_type == SEMI_COLON) tokens.advance();
             }
         } else {
             switch (tokens.current().token_type) {
@@ -83,20 +86,127 @@ public class Parser {
         return parse();
     }
 
-    private Ast_Type_Declaration parse_type_declaration() {
-        return TODO();
+
+    // <editor-fold desc="type-decl">
+    // for type aliasing, ie `Predicate :: Type = Any -> Bool`
+    private boolean is_type_declaration() {
+        assert tokens.current().token_type == IDENTIFIER;
+        LexerToken next = tokens.peek_next();
+        LexerToken type_decl = tokens.peek(2);
+        LexerToken equals_or_open_curly = tokens.peek(3);
+        return (next.token_type == DOUBLE_COLON || next.token_type == COLON) // for error reporting
+                && type_decl.token_type == KEYWORD_TYPE
+                && equals_or_open_curly.token_type == EQUALS;
     }
 
-    private boolean is_type_declaration() {
-        return TODO();
+    private Ast_Type_Declaration parse_type_declaration() {
+        LexerToken identifier = tokens.current();
+        tokens.assert_current(IDENTIFIER);
+        tokens.advance();
+        if (tokens.current().token_type == COLON) {
+            // @Improvement parse the type for reporting
+            compilerContext.emit_error(identifier, "Type declaration must be constant");
+        }
+        tokens.assert_current(DOUBLE_COLON, "Type `%s` has no double colon in its declaration.");
+        tokens.advance();
+        tokens.assert_current(KEYWORD_TYPE);
+        tokens.advance();
+        tokens.assert_current(OPEN_CURLY_BRACKET);
+        tokens.advance();
+        List<LexerToken> type_toks = tokens.take_while(is_not(SEMI_COLON));
+        Type the_type = parse_type(type_toks);
+        return new Ast_Type_Declaration(identifier.value, the_type);
+    }
+    // </editor-fold>
+
+    // <editor-fold desc="struct-decl">
+    //@Todo type parameters
+    private boolean is_struct_declaration() {
+        assert tokens.current().token_type == IDENTIFIER;
+        LexerToken next = tokens.peek_next();
+        LexerToken type_decl = tokens.peek(2);
+        LexerToken equals_or_curly_open = tokens.peek(3);
+        return (next.token_type == COLON || next.token_type == DOUBLE_COLON) // accept double colon for error reporting
+                && type_decl.token_type == KEYWORD_TYPE
+                && ((equals_or_curly_open.token_type == EQUALS && tokens.peek(4).token_type == OPEN_CURLY_BRACKET)
+                || equals_or_curly_open.token_type == OPEN_CURLY_BRACKET);
     }
 
     private Ast_Struct_Decl parse_struct_declaration() {
-        return TODO();
+        LexerToken identifier = tokens.current();
+        tokens.advance();
+        LexerToken double_colon = tokens.current();
+        if (double_colon.token_type != DOUBLE_COLON) {
+            compilerContext.emit_error(double_colon,
+                "new type / struct `%s` declaration must be constant. Use `::` instead.".formatted(identifier.value));
+        }
+        tokens.advance();
+        LexerToken type_token = tokens.current();
+        assert type_token.token_type == KEYWORD_TYPE;
+        tokens.advance();
+        if (tokens.current().token_type == EQUALS) {
+            tokens.advance(2);
+        } else if (tokens.current().token_type == OPEN_CURLY_BRACKET) {
+            tokens.advance();
+        } else  {
+            compilerContext.emit_error(identifier, "Error while parsing struct declaration, it must have am opening curly bracket.");
+        }
+        List<Ast_Struct_Member> members = new ArrayList<>();
+        while (tokens.current().token_type != CLOSE_CURLY_BRACKET) {
+            Ast_Struct_Member member = parse_struct_member_decl(identifier.value);
+            members.add(member);
+            while(tokens.current().token_type == NEW_LINE) {
+                tokens.advance();
+            }
+        }
+        tokens.advance();
+        return new Ast_Struct_Decl(identifier.value, members);
     }
 
-    private boolean is_struct_declaration() {
-        return TODO();
+    private Ast_Struct_Member parse_struct_member_decl(String struct_name) {
+        if (tokens.current().token_type == NEW_LINE) tokens.advance();
+        boolean is_with = tokens.current().token_type == KEYWORD_WITH;
+        if (is_with) tokens.advance();
+        LexerToken identifier = tokens.current();
+        tokens.advance();
+        if (tokens.current().token_type != COLON) {
+            compilerContext.emit_error(tokens.current(), "Struct member declaration name and type must be seperated by colons. Type: %s, member: %s"
+                    .formatted(struct_name, identifier));
+        }
+        tokens.advance();
+        List<LexerToken> type_tokens = tokens.take_while(t -> t.token_type != EQUALS && t.token_type != SEMI_COLON);
+        Type type = parse_type(type_tokens);
+        if (tokens.current().token_type == SEMI_COLON) {
+            // no init
+            tokens.advance();
+            return new Ast_Struct_Member(identifier.value, type, is_with, nothing());
+        }
+        if (tokens.current().token_type != EQUALS) {
+            compilerContext.emit_error(tokens.current(), "Struct member declaration type and initialisation expression must be seperated by an equal sign. Type: %s, member: %s"
+                .formatted(struct_name, identifier));
+        }
+
+        tokens.advance();
+        if (tokens.current().token_type == NEW_LINE) tokens.advance();
+        Ast_Expression init_expr;
+        if (tokens.current().is_litteral() && tokens.peek_next().token_type == SEMI_COLON) {
+            init_expr = Ast_Literral_Expr.from_lexer_token(tokens.current());
+            tokens.advance(2);  // 2: litteral and semi colon;
+        } else {
+            init_expr = parse_expr();
+        }
+        return new Ast_Struct_Member(identifier.value, type, is_with, just(init_expr));
+    }
+    // </editor-fold >
+
+    // <editor-fold desc="var-decl">"
+    private boolean is_variable_declaration() {
+        LexerToken current = tokens.peek();
+        LexerToken next = tokens.peek_next();
+        LexerToken next_next = tokens.peek(2);
+        return current.token_type == IDENTIFIER
+                && (next.token_type == COLON || next.token_type == COLON_EQUALS || next.token_type == DOUBLE_COLON)
+                && (next_next.token_type != KEYWORD_TYPE && next_next.token_type != KEYWORD_FUN);
     }
 
     private Ast_Variable_Decl parse_variable_decleration() {
@@ -123,29 +233,22 @@ public class Parser {
         };
         return variable_decl;
     }
+    // </editor-fold>
 
-    private boolean is_variable_declaration() {
-        LexerToken current = tokens.peek();
-        LexerToken next = tokens.peek_next();
-        LexerToken next_next = tokens.peek(2);
-        return current.token_type == IDENTIFIER
-                && (next.token_type == COLON || next.token_type == COLON_EQUALS || next.token_type == DOUBLE_COLON)
-                && (next_next.token_type != KEYWORD_TYPE && next_next.token_type != KEYWORD_FUN);
+
+    private boolean is_compiler_instruction() {
+        return tokens.tokens.get(0).token_type == HASH;
     }
 
     private Ast_Compiler_Instruction parse_compiler_istructions() {
         return null;
     }
 
-    private boolean is_compiler_instruction() {
-        return tokens.tokens.get(0).token_type == HASH;
-    }
-
     private Predicate<LexerToken> is_not(Lexer_Token_Type tok_type) {
         return it -> it.token_type != tok_type;
     }
 
-
+    // <editor-fold desc="type-decl">
     // @Improvement, do we support Tuples types?
     /**
      * Assumes that current is at the beginning of the type, token after colon
@@ -163,19 +266,25 @@ public class Parser {
         if (_DEBUG) System.out.println("Parsing " + toks.stream().map(t -> t.value).collect(Collectors.joining(" ")));
         // size 0 ???
         // simple types
-        if (toks.size() == 1) return Type.simple(toks.get(0).value);
 
         while (toks.get(0).token_type == NEW_LINE) {
             toks = toks.subList(1, toks.size());
         }
         LexerToken current = toks.get(0);
+        boolean is_pointer_type = current.token_type == AT_SIGN;
+        if (toks.size() == 1) {
+            if (current.is_litteral()) {
+                return is_pointer_type ? Type.get_ptr_type_from_token(current) : Type.get_type_from_token(current);
+            }
+            return Type.simple(toks.get(0).value, is_pointer_type);
+        }
 
         // Array types
         if (current.token_type == OPEN_SQUARE_BRACKET) {
             assert toks.get(toks.size() - 1).token_type == CLOSE_SQUARE_BRACKET : "Array type missing closing bracket: " + toks.stream().map(t -> t.value).collect(Collectors.joining(" "));
             List<LexerToken> within = toks.subList(1, toks.size() - 1);
             Type base_type = parse_type(within);
-            return new ArrayType(base_type);
+            return Type.array(base_type);
         }
 
         // function types
@@ -212,7 +321,8 @@ public class Parser {
             List<Type> types = parse_tuple_type(toks);
             return new TupleType(types);
         }
-        throw new NotYetImplementedException();
+        String info = toks.stream().map(t -> t.value).collect(Collectors.joining(" "));
+        return compilerContext.emit_error(toks.get(0), "Cannot parse type %s.".formatted(info));
     }
 
     private List<Type> parse_tuple_type(List<LexerToken> tokens) {
@@ -241,6 +351,7 @@ public class Parser {
         }
         return types;
     }
+    // </editor-fold>
 
 
     // @Todo unary operators
@@ -355,15 +466,20 @@ public class Parser {
                 ++comma_seen;
             }
         }
-        return compilerContext.emit_error(func_name, "Cannot find closing parenthsis.");
+        return compilerContext.emit_error(func_name, "Cannot find closing parenthesis.");
     }
 
 
     public static void main(String[] args) throws Exception {
-        Lexer lexer = new Lexer("/Users/Applin/Documents/develop/selmer/examples/types.sel", new CompilerContext());
+        long t1 = System.currentTimeMillis();
+        CompilerContext compilerContext = new CompilerContext();
+        Lexer lexer = new Lexer("/Users/Applin/Documents/develop/selmer/examples/types.sel", compilerContext);
         LexerTokenStream tokens = lexer.lex();
-        Parser parser = new Parser(tokens, lexer.compilerContext, lexer.filename);
-        System.out.println(parser.parse().toStringIndented(0));
+        Parser parser = new Parser(tokens, compilerContext, lexer.filename);
+        Ast ast = parser.parse();
+        compilerContext.printy_ast(System.out);
+        long t2 = System.currentTimeMillis();
+        System.out.println("Time elapsed = " + (t2 - t1) + " ms");
     }
 
 }

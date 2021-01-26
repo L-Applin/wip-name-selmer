@@ -22,4 +22,13 @@ public class FunctionType extends Type {
                 + ") -> "
                 + return_type.toString();
     }
+
+    @Override
+    public String toStringIndented(int level) {
+        return "Function ("
+                + arguments.stream().map(Objects::toString).collect(Collectors.joining(", "))
+                + ") -> "
+                + return_type.toString();
+
+    }
 }
