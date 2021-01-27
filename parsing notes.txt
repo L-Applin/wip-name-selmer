@@ -1,0 +1,9 @@
+Jon Blow Q&A on parsing
+  https://www.youtube.com/watch?v=MnctEW1oL-E&t=8059s
+
+
+
+Shunting yard algorith
+Recursive descend
+  With priority as argument to `parse_expression(priority: Int)`
+Shift-reduce parser

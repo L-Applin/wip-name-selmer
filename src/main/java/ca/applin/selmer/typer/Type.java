@@ -3,9 +3,11 @@ package ca.applin.selmer.typer;
 import ca.applin.selmer.ast.Ast;
 import ca.applin.selmer.lexer.LexerToken;
 import com.applin.selmer.util.ShouldNeverHappenedException;
+import java.util.Objects;
 
 public class Type extends Ast {
-    public static Type UNKNOWN = new Type("", false);
+    public static final Type UNKNOWN = new Type("", false);
+    public static final Type VOID = new Type("void", true);
     public static Type simple(String type_value) { return new Type(type_value, true, false); }
     public static Type ptr(String base_type) { return new Type(base_type, true, true); }
     public static Type simple(String type_value, boolean ptr) {
@@ -121,6 +123,24 @@ public class Type extends Ast {
     @Override
     public String toString() {
         return type_value;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Type type = (Type) o;
+        return is_pointer == type.is_pointer &&
+                type_value.equals(type.type_value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(type_value, is_pointer);
     }
 }
 

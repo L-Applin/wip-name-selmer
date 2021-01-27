@@ -7,3 +7,7 @@ Person :: type {
   father:     Person;
 };
 
+#run
+Vehicule :: Type {
+  motor: Motor;
+};

@@ -3,6 +3,7 @@ package ca.applin.selmer.ast;
 import java.io.Serializable;
 
 public abstract class Ast implements Serializable {
+    public static final Ast EMPTY = new Ast() { public String toString() { return "<empty>"; } };
     public Ast next;
     public static String DEFAULT_DEPTH_PER_LEVEL = "    ";
     public String toStringIndented(int level) {
@@ -16,5 +17,6 @@ public abstract class Ast implements Serializable {
         }
         next.add_next(ast);
     }
+
 }
 

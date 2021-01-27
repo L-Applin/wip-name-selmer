@@ -13,6 +13,7 @@ public class LexerTokenStream implements Iterable<LexerToken> {
 
     public List<LexerToken> tokens;
     int current_index;
+    public boolean has_been_surrounded = false;
 
     public LexerTokenStream(List<LexerToken> tokens) {
         this.tokens = tokens;
@@ -67,6 +68,15 @@ public class LexerTokenStream implements Iterable<LexerToken> {
             }
         }
         return toks;
+    }
+
+    public void advance_if(Predicate<LexerToken> test) {
+        if (end()) {
+            return;
+        }
+        if (test.test(current())) {
+            advance();
+        }
     }
 
     public void log_all_file(PrintStream printStream) {
@@ -130,5 +140,9 @@ public class LexerTokenStream implements Iterable<LexerToken> {
             }
         }
         return splits;
+    }
+
+    public void skip_new_lines() {
+        while (!end() && current().token_type == Lexer_Token_Type.NEW_LINE) advance();
     }
 }

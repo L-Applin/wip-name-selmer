@@ -31,7 +31,7 @@ public class Ast_Funtion_Call extends Ast_Expression {
 
     @Override
     public String toStringIndented(int level) {
-        String func_name = DEFAULT_DEPTH_PER_LEVEL.repeat(level) + "Function: " + function_name + '\n';
+        String func_name = DEFAULT_DEPTH_PER_LEVEL.repeat(level) + "Function call: " + function_name + '\n';
         StringBuilder sb = new StringBuilder();
         for (Ast_Expression arg : args) {
             sb.append(arg.toStringIndented(level + 1));

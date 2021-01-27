@@ -62,6 +62,8 @@ public class ShuntingYardAlgorithm {
             if (it.is_numeric() || it.token_type == Lexer_Token_Type.IDENTIFIER && !is_func_type) {
                 output.add(it);
 
+            }else if (it.is_litteral()) {
+                output.add(it);
             } else if (is_func_type) {
                 it.is_function_call = true;
                 if (it.function_arg_count == UNKNOW_ARGUMENT_COUNT) {
@@ -71,9 +73,10 @@ public class ShuntingYardAlgorithm {
 
 
             } else if (it.is_operator()) {
-                while ((!operator_stack.isEmpty() && operator_stack.peek().is_operator())
+                while (!operator_stack.isEmpty() && ((operator_stack.peek().is_operator())
                         && (operator_stack.peek().precedence > it.precedence || (operator_stack.peek().precedence == it.precedence && it.is_left_associative()))
-                        && operator_stack.peek().token_type != Lexer_Token_Type.OPEN_PAREN) {
+                        && operator_stack.peek().token_type != Lexer_Token_Type.OPEN_PAREN
+                || operator_stack.peek().is_function_call)) {
                     output.add(operator_stack.pop());
                 }
                 operator_stack.push(it);

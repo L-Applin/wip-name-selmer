@@ -1,0 +1,41 @@
+// everything
+do_stuff :: fun (String, Int) -> Int = (str: String, i: Int) -> {
+  x: Int = 42;
+  y: Int = 69;
+  in_str: String = "this is a string";
+  return len(max(10, 20), 30);
+}
+
+/*
+do_stuff_2 :: fun (String, Int) -> Int
+(str: String, i: Int) {
+  x: Int = 42;
+  y: Int = 69;
+  in_str: String = "this is a string";
+  return x + y + i + str.len() + in_str.len();
+}
+
+// if we ommit the function type, the return type is not even shown ...
+do_stuff_3 :: (bob: (String, Int), i: Int) -> {
+  x: Int = 42;
+  y: Int = 69;
+  in_str: String = "this is a string";
+  return x + y + str.len() + in_str.len();
+}
+
+do_stuff_4 :: fun (String, Int) -> Int = (str) -> {
+  x: Int = 42;
+  y: Int = 69;
+  in_str: String = "this is a string";
+  return x + y + str.len() + in_str.len();
+}
+
+do_stuff_5 :: fun (String, Int) -> Int
+(str, i) -> {
+  x: Int = 42;
+  y: Int = 69;
+  in_str: String = "this is a string";
+  return x + y + i + str.len() + in_str.len();
+}
+
+*/

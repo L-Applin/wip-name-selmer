@@ -1,21 +1,24 @@
 package ca.applin.selmer.parser;
 
-import static ca.applin.selmer.CompilerContext.TODO;
 import static ca.applin.selmer.CompilerContext._DEBUG;
 import static ca.applin.selmer.ast.Ast_Literral_Expr.from_lexer_token;
 import static ca.applin.selmer.lexer.LexerToken.Lexer_Token_Type.*;
 import static com.applin.selmer.util.Maybe.just;
 import static com.applin.selmer.util.Maybe.nothing;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 
 import ca.applin.selmer.CompilerContext;
-import ca.applin.selmer.NotYetImplementedException;
 import ca.applin.selmer.ast.Ast;
 import ca.applin.selmer.ast.Ast_Binop;
 import ca.applin.selmer.ast.Ast_Compiler_Instruction;
 import ca.applin.selmer.ast.Ast_Expression;
+import ca.applin.selmer.ast.Ast_Function_Arg;
+import ca.applin.selmer.ast.Ast_Function_Decl;
 import ca.applin.selmer.ast.Ast_Funtion_Call;
 import ca.applin.selmer.ast.Ast_Literral_Expr;
 import ca.applin.selmer.ast.Ast_Operator.Operator;
+import ca.applin.selmer.ast.Ast_Return_Statement;
 import ca.applin.selmer.ast.Ast_Struct_Decl;
 import ca.applin.selmer.ast.Ast_Struct_Member;
 import ca.applin.selmer.ast.Ast_Type_Declaration;
@@ -26,7 +29,6 @@ import ca.applin.selmer.lexer.Lexer;
 import ca.applin.selmer.lexer.LexerToken;
 import ca.applin.selmer.lexer.LexerToken.Lexer_Token_Type;
 import ca.applin.selmer.lexer.LexerTokenStream;
-import ca.applin.selmer.typer.ArrayType;
 import ca.applin.selmer.typer.FunctionType;
 import ca.applin.selmer.typer.TupleType;
 import ca.applin.selmer.typer.Type;
@@ -53,38 +55,177 @@ public class Parser {
 
     public Ast parse() {
         // todo parse top level declaration: imports, etc
-        if (tokens.end()) {
-            return compilerContext.ast;
+        while (!tokens.end()) {
+
+            tokens.skip_new_lines();
+
+            if (tokens.end()) {
+                break;
+            }
+
+            // @Lang : do we really want to end each parsing unit to end with a semi colon ?
+            if (is_compiler_instruction()) {
+                Ast_Compiler_Instruction ast = parse_compiler_istructions();
+                compilerContext.ast.add_next(ast);
+            } else if (tokens.current().token_type == IDENTIFIER) {
+                if (is_variable_declaration()) {
+                    Ast_Variable_Decl ast = parse_variable_decleration();
+                    tokens.advance_if(tok -> tok.token_type == SEMI_COLON);
+                    compilerContext.add_to_ast(ast);
+                } else if (is_struct_declaration()) {
+                    Ast_Struct_Decl ast = parse_struct_declaration();
+                    tokens.advance_if(tok -> tok.token_type == SEMI_COLON);
+                    compilerContext.add_to_ast(ast);
+                } else if (is_type_declaration()) {
+                    Ast_Type_Declaration ast = parse_type_declaration();
+                    tokens.advance_if(tok -> tok.token_type == SEMI_COLON);
+                    compilerContext.add_to_ast(ast);
+                } else if (is_function_declaration()) {
+                    Ast_Function_Decl ast = parse_function_decl();
+                    tokens.advance_if(tok -> tok.token_type == CLOSE_CURLY_BRACKET);
+                    compilerContext.add_to_ast(ast);
+                }
+            } else {
+                switch (tokens.current().token_type) {
+                    case KEYWORD_RETURN: {
+                        tokens.advance();
+                        Ast_Expression expr = parse_expr();
+                        compilerContext.add_to_ast(new Ast_Return_Statement(expr));
+                    }
+                }
+            }
+        }
+        return compilerContext.ast;
+    }
+
+    // <editor-fold desc="function-decl">
+    private Ast_Function_Decl parse_function_decl() {
+        tokens.assert_current(IDENTIFIER);
+        LexerToken ident = tokens.current();
+        tokens.advance();
+        if (tokens.current().token_type == COLON) {
+            compilerContext.emit_error(ident, "Function declaration must be constant.");
+        }
+        tokens.assert_current(DOUBLE_COLON);
+        tokens.advance();
+        Type func_type = Type.UNKNOWN;
+        if (tokens.current().token_type == KEYWORD_FUN) {
+            List<LexerToken> type_tokens = tokens.take_while(t -> t.token_type != NEW_LINE && t.token_type != EQUALS);
+            func_type = parse_type(type_tokens);
+            if (tokens.current().token_type == EQUALS) tokens.advance();
+            tokens.skip_new_lines();
+        }
+        List<Ast_Function_Arg> args = parse_function_args();
+
+        // check if type matches
+        if (func_type.is_know) {
+            List<Type> functions_args_type = ((FunctionType) func_type).arguments;
+            List<Type> function_args_decl  = args.stream().map(arg -> arg.type).collect(toList());
+            if (!functions_args_type.equals(function_args_decl)) {
+                compilerContext.emit_error(ident,
+                        "function declaration for `%s` has type `%s`, but was given arguments `%s`.".formatted(
+                                ident.value, func_type.toString(), function_args_decl.stream().map(Type::toString).collect(joining(", "))));
+            }
+        }
+        tokens.advance();
+        boolean is_lambda_arrow = tokens.current().token_type == LAMBDA_ARROW;
+        if (!is_lambda_arrow && tokens.current().token_type != OPEN_CURLY_BRACKET) {
+            compilerContext.emit_error(ident,
+                    "Cannot parse function declaration `%s`, missing lambda arrow or opening curly bracket.".formatted(ident.value));
         }
 
-        while (tokens.current().token_type == NEW_LINE) {
+        tokens.advance();
+
+        if (is_lambda_arrow) {
+            if (tokens.current().token_type != OPEN_CURLY_BRACKET) {
+                compilerContext.emit_error(ident, "Cannot parse function declaration, missing opening curly bracket.");
+            }
             tokens.advance();
         }
 
-        // @Lang : do we really want to end each parsing unit to end with a semi colon ?
-        if (is_compiler_instruction()) {
-            Ast_Compiler_Instruction ast = parse_compiler_istructions();
-            compilerContext.ast.add_next(ast);
-        } else if (tokens.current().token_type == IDENTIFIER) {
-            if (is_variable_declaration()) {
-                Ast_Variable_Decl ast = parse_variable_decleration();
-                compilerContext.add_to_ast(ast);
-            } else if (is_struct_declaration()) {
-                Ast_Struct_Decl ast = parse_struct_declaration();
-                compilerContext.add_to_ast(ast);
-                if (tokens.current().token_type == SEMI_COLON) tokens.advance();
-            } else if (is_type_declaration()) {
-                Ast_Type_Declaration ast = parse_type_declaration();
-                compilerContext.add_to_ast(ast);
-                if (tokens.current().token_type == SEMI_COLON) tokens.advance();
+        // take token while we are inside the function body, then parse it
+        int open_curly = 1;
+        int close_curly = 0;
+        List<LexerToken> body_tokens = new ArrayList<>();
+        while (true) {
+            if (tokens.end()) break;
+            if (tokens.current().token_type == OPEN_CURLY_BRACKET) open_curly++;
+            if (tokens.current().token_type == CLOSE_CURLY_BRACKET) {
+                close_curly++;
+                if (close_curly == open_curly) {
+                    break;
+                }
             }
-        } else {
-            switch (tokens.current().token_type) {
+            body_tokens.add(tokens.current());
+            tokens.advance();
+        }
+        Parser parser = new Parser(new LexerTokenStream(body_tokens), compilerContext, filename+"#"+ident.value);
+        Ast body_ast = parser.parse();
+        return new Ast_Function_Decl(ident.value, func_type, args, body_ast);
+    }
 
+    private List<Ast_Function_Arg> parse_function_args() {
+        assert tokens.current().token_type == OPEN_PAREN;
+        tokens.advance();
+        List<Ast_Function_Arg> args = new ArrayList<>();
+        while (true) {
+            Ast_Function_Arg func_arg = parse_single_function_arg();
+            args.add(func_arg);
+            if (tokens.current().token_type == CLOSE_PAREN) {
+                break;
+            } else if (tokens.current().token_type == COMMA) {
+                tokens.advance();
             }
         }
-        return parse();
+        return args;
     }
+
+    // tokens should be everything between commas, or before closing parenthesis of function argument
+    private Ast_Function_Arg parse_single_function_arg() {
+        LexerToken identifier = tokens.current();
+        assert identifier.token_type == IDENTIFIER;
+        String id = identifier.value;
+        tokens.advance();
+        if (tokens.current().token_type != COLON) {
+            return new Ast_Function_Arg(id);
+        }
+        tokens.advance();
+        // take tokens until we see a significant comma or significant closing parenthesis
+        List<LexerToken> type_tokens = new ArrayList<>();
+        int open_paren = 0;
+        int close_parent = 0;
+        while (true) {
+            LexerToken current = tokens.current();
+            if (current.token_type == OPEN_PAREN) {
+                open_paren++;
+            }
+            else if (current.token_type == CLOSE_PAREN) {
+                close_parent++;
+                if (close_parent == open_paren + 1) {
+                    break;
+                }
+
+            }
+            else if (current.token_type == COMMA) {
+                if (open_paren == close_parent) {
+                    break;
+                }
+            }
+            type_tokens.add(current);
+            tokens.advance();
+        }
+        Type type = parse_type(type_tokens);
+        return new Ast_Function_Arg(id, type);
+    }
+
+    private boolean is_function_declaration() {
+        assert tokens.current().token_type == IDENTIFIER;
+        LexerToken next = tokens.peek_next();
+        LexerToken fun_keyword = tokens.peek(2);
+        return (next.token_type == DOUBLE_COLON || next.token_type == COLON) // for error reporting
+                && fun_keyword.token_type ==KEYWORD_FUN;
+    }
+    // </editor-fold>
 
 
     // <editor-fold desc="type-decl">
@@ -160,7 +301,9 @@ public class Parser {
             }
         }
         tokens.advance();
-        return new Ast_Struct_Decl(identifier.value, members);
+        Ast_Struct_Decl decl = new Ast_Struct_Decl(identifier.value, members);
+        tokens.advance();
+        return decl;
     }
 
     private Ast_Struct_Member parse_struct_member_decl(String struct_name) {
@@ -235,27 +378,29 @@ public class Parser {
     }
     // </editor-fold>
 
-
+    // <editor-fold desc="compiler-instruction">
     private boolean is_compiler_instruction() {
         return tokens.tokens.get(0).token_type == HASH;
     }
 
     private Ast_Compiler_Instruction parse_compiler_istructions() {
-        return null;
+        tokens.assert_current(HASH);
+        tokens.advance();
+        tokens.assert_current(IDENTIFIER);
+        Ast_Compiler_Instruction ast = new Ast_Compiler_Instruction(tokens.current().value);
+        tokens.advance();
+        return ast;
     }
-
-    private Predicate<LexerToken> is_not(Lexer_Token_Type tok_type) {
-        return it -> it.token_type != tok_type;
-    }
+    // </editor-fold>
 
     // <editor-fold desc="type-decl">
     // @Improvement, do we support Tuples types?
     /**
      * Assumes that current is at the beginning of the type, token after colon
-     *  --> x: Int;             simple type, primitive
+     *  --> x: Int              simple type, primitive
      *  --> p: Person           simple type, struct
-     *  --> x: [Int];           Array type
-     *  --> f: fun Int -> Int;  Functional type
+     *  --> x: [Int]            Array type
+     *  --> f: fun Int -> Int   Functional type
      *  --> t: (Int, String)    Tuple type ???
      *
      *
@@ -277,6 +422,12 @@ public class Parser {
                 return is_pointer_type ? Type.get_ptr_type_from_token(current) : Type.get_type_from_token(current);
             }
             return Type.simple(toks.get(0).value, is_pointer_type);
+        }
+
+        if (toks.size() == 2) {
+            if (toks.get(0).token_type == OPEN_PAREN && toks.get(1).token_type == CLOSE_PAREN) {
+                return Type.VOID;
+            }
         }
 
         // Array types
@@ -353,7 +504,7 @@ public class Parser {
     }
     // </editor-fold>
 
-
+    // <editor-fold desc="parse-expr">
     // @Todo unary operators
     public Ast_Expression parse_expr() {
         ShuntingYardAlgorithm shuntingYardAlgorithmParser = new ShuntingYardAlgorithm(compilerContext);
@@ -361,7 +512,10 @@ public class Parser {
         if (_DEBUG) System.out.print("Tokens read: ");
         tokens.tokens.forEach(t -> System.out.print(t.value + " "));
         if (_DEBUG) System.out.println();
-        tokens.tokens = surround_function_call_argument_with_parenthesis(tokens.tokens);
+        if (!tokens.has_been_surrounded) {
+            tokens.tokens = surround_function_call_argument_with_parenthesis(tokens.tokens);
+            tokens.has_been_surrounded = true;
+        }
         List<LexerToken> reversePolishNotation = shuntingYardAlgorithmParser.reverse_polish_notation(new ArrayDeque<>(tokens.take_while(t -> t.token_type != SEMI_COLON)));
         if (_DEBUG) System.out.print("Reverse polish notation: ");
         reversePolishNotation.forEach(t -> System.out.print(t.value + " "));
@@ -440,9 +594,16 @@ public class Parser {
         }
         return list_with_added_dummy_parenthesis;
     }
+    // </editor-fold>
 
+    // <editor-fold desc="utils">
     public static boolean is_function_call(LexerToken it, LexerToken top) {
+        if (top == null) return false;
         return it.token_type == Lexer_Token_Type.IDENTIFIER && top.token_type == Lexer_Token_Type.OPEN_PAREN;
+    }
+
+    private static Predicate<LexerToken> is_not(Lexer_Token_Type tok_type) {
+        return it -> it.token_type != tok_type;
     }
 
     public static int cout_argument(LexerToken func_name, List<LexerToken> input, CompilerContext compilerContext) {
@@ -468,15 +629,15 @@ public class Parser {
         }
         return compilerContext.emit_error(func_name, "Cannot find closing parenthesis.");
     }
-
+    // </editor-fold>
 
     public static void main(String[] args) throws Exception {
         long t1 = System.currentTimeMillis();
         CompilerContext compilerContext = new CompilerContext();
-        Lexer lexer = new Lexer("/Users/Applin/Documents/develop/selmer/examples/types.sel", compilerContext);
+        Lexer lexer = new Lexer("/Users/Applin/Documents/develop/selmer/examples/func.sel", compilerContext);
         LexerTokenStream tokens = lexer.lex();
         Parser parser = new Parser(tokens, compilerContext, lexer.filename);
-        Ast ast = parser.parse();
+        parser.parse();
         compilerContext.printy_ast(System.out);
         long t2 = System.currentTimeMillis();
         System.out.println("Time elapsed = " + (t2 - t1) + " ms");
