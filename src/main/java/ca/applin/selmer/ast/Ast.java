@@ -1,5 +1,7 @@
 package ca.applin.selmer.ast;
 
+import ca.applin.selmer.interp.InterpResult;
+import ca.applin.selmer.interp.Interpreter;
 import java.io.Serializable;
 
 public abstract class Ast implements Serializable {

@@ -1,5 +1,7 @@
 package ca.applin.selmer.ast;
 
+import ca.applin.selmer.interp.AstInterpreter;
+import ca.applin.selmer.interp.InterpResult;
 import ca.applin.selmer.lexer.LexerToken;
 import ca.applin.selmer.typer.Type;
 
@@ -43,4 +45,10 @@ public class Ast_Literral_Expr extends Ast_Expression {
     public String toString() {
         return "(Litteral " + litteral_value + ")";
     }
+
+    @Override
+    public InterpResult interp(AstInterpreter interpreter) {
+        return interpreter.interp(this);
+    }
+
 }

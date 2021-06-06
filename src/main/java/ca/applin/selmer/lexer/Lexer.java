@@ -11,6 +11,7 @@ import com.applin.selmer.util.StringUtils;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Stack;
 
 /*
 TODO
@@ -50,16 +51,29 @@ public class Lexer {
     int pos, check, col = 0;
     int line = 1;
 
-    public Lexer(String filename, CompilerContext compilerContext) throws Exception {
-        // todo file not found
+    private Lexer(CompilerContext compilerContext, String filename, char[] file) {
+        this.compilerContext = compilerContext;
         this.filename = filename;
+        this.file = file;
+        this.current = file[0];
+    }
+
+    public static Lexer newInstanceFromFile(String filename) throws Exception {
+        return newInstanceFromFile(filename, new CompilerContext());
+    }
+
+    public static Lexer newInstanceFromFile(String filename, CompilerContext compilerContext) throws Exception {
+        // todo file not found
+        // todo charset UTF-8 etc
         String fileContent = new String(new FileInputStream(filename).readAllBytes(), StandardCharsets.UTF_8);
-        this.file = fileContent.toCharArray();
         if (_DEBUG) {
             System.out.println("======== Lexing: " + filename + " ========");
         }
-        this.current = file[0];
-        this.compilerContext = compilerContext;
+        return new Lexer(compilerContext, filename, fileContent.toCharArray());
+    }
+
+    public static Lexer newInstance(String toParse, CompilerContext compilerContext) {
+        return new Lexer(compilerContext, "__from_string__", toParse.toCharArray());
     }
 
     public LexerTokenStream lex() {
@@ -258,7 +272,7 @@ public class Lexer {
         }
 
         int len = check - pos;
-        char[] value = StringUtils.str_dup(file, pos, check == file.length - 1 ? ++len: len);
+        char[] value = StringUtils.str_dup(file, pos, len);
         String str_value = new String(value);
         // @Hack, fix logic instead
         if (!Character.isDigit(str_value.charAt(len - 1))) {
@@ -436,7 +450,7 @@ public class Lexer {
     }
 
     public static void main(String[] args) throws Exception {
-        Lexer lexer = new Lexer("/Users/Applin/Documents/develop/selmer/examples/str.sel", new CompilerContext());
+        Lexer lexer = Lexer.newInstanceFromFile("/Users/Applin/Documents/develop/selmer/examples/str.sel", new CompilerContext());
         LexerTokenStream tokens = lexer.lex();
         tokens.log_all_file(System.out);
     }

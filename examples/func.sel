@@ -3,7 +3,7 @@ do_stuff :: fun (String, Int) -> Int = (str: String, i: Int) -> {
   x: Int = 42;
   y: Int = 69;
   in_str: String = "this is a string";
-  return len(max(10, 20), 30);
+  return len(1 + max(10, 20), 30);
 }
 
 /*

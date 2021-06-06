@@ -211,4 +211,12 @@ public class LexerToken {
         return (flag_to_check & token_type.flag) != 0;
     }
 
+    public boolean is_expresion_start() {
+        return is_litteral() || token_type == OPEN_PAREN
+                            ||token_type == DOUBLE_PLUS
+                            || token_type == DOUBLE_MINUS
+                ;
+
+    }
+
 }

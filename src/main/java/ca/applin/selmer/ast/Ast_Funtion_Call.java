@@ -1,5 +1,7 @@
 package ca.applin.selmer.ast;
 
+import ca.applin.selmer.interp.AstInterpreter;
+import ca.applin.selmer.interp.InterpResult;
 import ca.applin.selmer.typer.Type;
 import java.util.List;
 import java.util.stream.Collector;
@@ -38,4 +40,10 @@ public class Ast_Funtion_Call extends Ast_Expression {
         }
         return func_name + sb.toString();
     }
+
+    @Override
+    public InterpResult interp(AstInterpreter interpreter) {
+        return interpreter.interp(this);
+    }
+
 }

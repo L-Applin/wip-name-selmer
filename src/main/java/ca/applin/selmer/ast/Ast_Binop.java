@@ -1,5 +1,7 @@
 package ca.applin.selmer.ast;
 
+import ca.applin.selmer.interp.AstInterpreter;
+import ca.applin.selmer.interp.InterpResult;
 import ca.applin.selmer.lexer.LexerToken.Lexer_Token_Type.*;
 import ca.applin.selmer.lexer.LexerToken;
 import ca.applin.selmer.parser.ParserException;
@@ -57,4 +59,10 @@ public class Ast_Binop extends Ast_Operator {
     public String toString() {
         return "(Binop (%s %s %s))".formatted(operator.toString(), left.toString(), right.toString());
     }
+
+    @Override
+    public InterpResult interp(AstInterpreter interpreter) {
+        return interpreter.interp(this);
+    }
+
 }

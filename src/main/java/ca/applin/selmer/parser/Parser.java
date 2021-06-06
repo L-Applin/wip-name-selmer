@@ -84,7 +84,16 @@ public class Parser {
                     Ast_Function_Decl ast = parse_function_decl();
                     tokens.advance_if(tok -> tok.token_type == CLOSE_CURLY_BRACKET);
                     compilerContext.add_to_ast(ast);
+                } else {
+                    // start of an expression
+                    Ast_Expression ast = parse_expr();
+                    tokens.advance_if(tok -> tok.token_type == SEMI_COLON);
+                    compilerContext.add_to_ast(ast);
                 }
+            } else if (tokens.current().is_expresion_start()) {
+                Ast_Expression ast = parse_expr();
+                tokens.advance_if(tok -> tok.token_type == SEMI_COLON);
+                compilerContext.add_to_ast(ast);
             } else {
                 switch (tokens.current().token_type) {
                     case KEYWORD_RETURN: {
@@ -226,7 +235,6 @@ public class Parser {
                 && fun_keyword.token_type ==KEYWORD_FUN;
     }
     // </editor-fold>
-
 
     // <editor-fold desc="type-decl">
     // for type aliasing, ie `Predicate :: Type = Any -> Bool`
@@ -548,6 +556,7 @@ public class Parser {
             }
         }
         Ast_Expression exrp = expr_stack.pop();
+        exrp.setReversePolishNotation(reversePolishNotation);
         assert tokens.current().token_type == SEMI_COLON : "End of expression parsing is not a semi colon. %s:%s:%s".formatted(filename, reversePolishNotation.get(0).line, reversePolishNotation.get(0).col);
         tokens.advance();
         return exrp;
@@ -585,7 +594,6 @@ public class Parser {
                             list_with_added_dummy_parenthesis.add(
                                     new LexerToken(Lexer_Token_Type.CLOSE_PAREN, ")",
                                             it.filename, it.line, it.col));
-                            close_parenthesis_count++;
                             required_close_paren_to_add--;
                         }
                     }
@@ -634,13 +642,20 @@ public class Parser {
     public static void main(String[] args) throws Exception {
         long t1 = System.currentTimeMillis();
         CompilerContext compilerContext = new CompilerContext();
-        Lexer lexer = new Lexer("/Users/Applin/Documents/develop/selmer/examples/func.sel", compilerContext);
+        Lexer lexer = Lexer.newInstanceFromFile("/Users/Applin/Documents/develop/selmer/examples/expr.sel", compilerContext);
         LexerTokenStream tokens = lexer.lex();
         Parser parser = new Parser(tokens, compilerContext, lexer.filename);
         parser.parse();
         compilerContext.printy_ast(System.out);
         long t2 = System.currentTimeMillis();
         System.out.println("Time elapsed = " + (t2 - t1) + " ms");
+    }
+
+    public static Ast parseString(String expression) {
+        CompilerContext context = new CompilerContext();
+        Lexer lexer = Lexer.newInstance(expression, context);
+        Parser parser = new Parser(lexer.lex(), context, lexer.filename);
+        return parser.parse();
     }
 
 }

@@ -3,6 +3,8 @@ package ca.applin.selmer.ast;
 
 import static ca.applin.selmer.lexer.LexerToken.Lexer_Token_Type.*;
 
+import ca.applin.selmer.interp.AstInterpreter;
+import ca.applin.selmer.interp.InterpResult;
 import ca.applin.selmer.lexer.LexerToken.Lexer_Token_Type;
 import ca.applin.selmer.lexer.LexerToken;
 import ca.applin.selmer.typer.Type;
@@ -107,5 +109,10 @@ public class Ast_Operator extends Ast_Expression {
     @Override
     public String toString() {
         return "(Op " + operator.toString() + ")";
+    }
+
+    @Override
+    public InterpResult interp(AstInterpreter interpreter) {
+        return interpreter.interp(this);
     }
 }
