@@ -10,6 +10,7 @@ import static java.util.stream.Collectors.toList;
 
 import ca.applin.selmer.CompilerContext;
 import ca.applin.selmer.ast.Ast;
+import ca.applin.selmer.ast.Ast_Array_Litteral;
 import ca.applin.selmer.ast.Ast_Binop;
 import ca.applin.selmer.ast.Ast_Compiler_Instruction;
 import ca.applin.selmer.ast.Ast_Expression;
@@ -21,6 +22,7 @@ import ca.applin.selmer.ast.Ast_Operator.Operator;
 import ca.applin.selmer.ast.Ast_Return_Statement;
 import ca.applin.selmer.ast.Ast_Struct_Decl;
 import ca.applin.selmer.ast.Ast_Struct_Member;
+import ca.applin.selmer.ast.Ast_Tuple_Litteral;
 import ca.applin.selmer.ast.Ast_Type_Declaration;
 import ca.applin.selmer.ast.Ast_Unop;
 import ca.applin.selmer.ast.Ast_Variable_Decl;
@@ -30,9 +32,11 @@ import ca.applin.selmer.lexer.LexerToken;
 import ca.applin.selmer.lexer.LexerToken.Lexer_Token_Type;
 import ca.applin.selmer.lexer.LexerTokenStream;
 import ca.applin.selmer.typer.FunctionType;
+import ca.applin.selmer.typer.Scope;
 import ca.applin.selmer.typer.TupleType;
 import ca.applin.selmer.typer.Type;
 import com.applin.selmer.util.Maybe;
+import com.applin.selmer.util.Tuple;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,6 +58,10 @@ public class Parser {
     }
 
     public Ast parse() {
+        return parse(new Scope(filename, compilerContext));
+    }
+
+    public Ast parse(Scope scope) {
         // todo parse top level declaration: imports, etc
         while (!tokens.end()) {
 
@@ -69,7 +77,7 @@ public class Parser {
                 compilerContext.ast.add_next(ast);
             } else if (tokens.current().token_type == IDENTIFIER) {
                 if (is_variable_declaration()) {
-                    Ast_Variable_Decl ast = parse_variable_decleration();
+                    Ast_Variable_Decl ast = parse_variable_decleration(scope);
                     tokens.advance_if(tok -> tok.token_type == SEMI_COLON);
                     compilerContext.add_to_ast(ast);
                 } else if (is_struct_declaration()) {
@@ -81,7 +89,7 @@ public class Parser {
                     tokens.advance_if(tok -> tok.token_type == SEMI_COLON);
                     compilerContext.add_to_ast(ast);
                 } else if (is_function_declaration()) {
-                    Ast_Function_Decl ast = parse_function_decl();
+                    Ast_Function_Decl ast = parse_function_decl(scope);
                     tokens.advance_if(tok -> tok.token_type == CLOSE_CURLY_BRACKET);
                     compilerContext.add_to_ast(ast);
                 } else {
@@ -91,7 +99,14 @@ public class Parser {
                     compilerContext.add_to_ast(ast);
                 }
             } else if (tokens.current().is_expresion_start()) {
-                Ast_Expression ast = parse_expr();
+                Ast_Expression ast;
+                if (tokens.current().token_type == OPEN_PAREN && is_tuple_expr()) {
+                    ast = parse_tuple_litteral(scope);
+                } else if (tokens.current().token_type == OPEN_SQUARE_BRACKET) {
+                    ast = parse_array_litteral(scope);
+                } else {
+                    ast = parse_expr();
+                }
                 tokens.advance_if(tok -> tok.token_type == SEMI_COLON);
                 compilerContext.add_to_ast(ast);
             } else {
@@ -107,8 +122,96 @@ public class Parser {
         return compilerContext.ast;
     }
 
+    private Ast_Expression parse_array_litteral(Scope scope) {
+        assert tokens.current().token_type == OPEN_SQUARE_BRACKET : "Array litteral must start with perenthesis";
+        List<LexerToken> toks = tokens.take_while(is_not(SEMI_COLON));
+        List<List<LexerToken>> splits = seperate_on_significant_comma(toks, OPEN_SQUARE_BRACKET, CLOSE_SQUARE_BRACKET);
+        List<Ast_Expression> items = splits.stream().map(item_tokens -> {
+            CompilerContext compilerContext = new CompilerContext();
+            compilerContext.requiresSemiColon = false;
+            Parser parser = new Parser(new LexerTokenStream(item_tokens), compilerContext, this.filename);
+            return (Ast_Expression) parser.parse(scope);
+        }).collect(toList());
+        return new Ast_Array_Litteral(items);
+    }
+
+    // Checks if there is a comma before the matching closing parenthesis, but not in a function call.
+    public boolean is_tuple_expr() {
+        // TODO: 2021-06-21
+        if (tokens.current().token_type != OPEN_PAREN) {
+            return false;
+        }
+        List<LexerToken> toks = tokens.take_while(is_not(SEMI_COLON), false);
+        int open_paren_count = 0;
+        int close_paren_count = 0;
+        boolean has_seen_comma = false;
+        for (LexerToken tok : toks) {
+            if (tok.token_type == COMMA) {
+                if (open_paren_count == close_paren_count + 1) {
+                    has_seen_comma = true;
+                }
+            }
+            if (tok.token_type == OPEN_PAREN) {
+                open_paren_count++;
+            }
+            if (tok.token_type == CLOSE_PAREN) {
+                close_paren_count++;
+            }
+        }
+        return has_seen_comma;
+    }
+
+    public Ast_Expression parse_tuple_litteral(Scope scope) {
+        assert tokens.current().token_type == OPEN_PAREN : "Tuple must start with perenthesis";
+        List<LexerToken> toks = tokens.take_while(is_not(SEMI_COLON));
+        List<List<LexerToken>> splits = seperate_on_significant_comma(toks, OPEN_PAREN, CLOSE_PAREN);
+        List<Ast_Expression> items = splits.stream().map(item_tokens -> {
+            CompilerContext compilerContext = new CompilerContext();
+            compilerContext.requiresSemiColon = false;
+            Parser parser = new Parser(new LexerTokenStream(item_tokens), compilerContext, this.filename);
+            return (Ast_Expression) parser.parse(scope);
+        }).collect(toList());
+        return new Ast_Tuple_Litteral(items);
+    }
+
+    public List<List<LexerToken>> seperate_on_significant_comma(List<LexerToken> toks, Lexer_Token_Type begin, Lexer_Token_Type end) {
+        List<List<LexerToken>> splitted = new ArrayList<>();
+        List<LexerToken> current = new ArrayList<>();
+        int open_paren_count = 0;
+        int close_paren_count = 0;
+        for (LexerToken tok : toks) {
+            boolean add_it = true;
+            if (tok.token_type == COMMA) {
+                if (open_paren_count == close_paren_count + 1) {
+                    splitted.add(current);
+                    current = new ArrayList<>();
+                    continue;
+                }
+            }
+            if (tok.token_type == begin) {
+                open_paren_count++;
+                if (open_paren_count == 1) {
+                    add_it = false;
+                }
+            }
+            if (tok.token_type == end) {
+                close_paren_count++;
+                add_it = !(open_paren_count == close_paren_count);
+                if (open_paren_count == close_paren_count) {
+                    splitted.add(current);
+                    break;
+                }
+            }
+            if (add_it) {
+                current.add(tok);
+            }
+        }
+
+        return splitted;
+    }
+
     // <editor-fold desc="function-decl">
-    private Ast_Function_Decl parse_function_decl() {
+    private Ast_Function_Decl parse_function_decl(Scope scope) {
         tokens.assert_current(IDENTIFIER);
         LexerToken ident = tokens.current();
         tokens.advance();
@@ -169,8 +272,8 @@ public class Parser {
             tokens.advance();
         }
         Parser parser = new Parser(new LexerTokenStream(body_tokens), compilerContext, filename+"#"+ident.value);
-        Ast body_ast = parser.parse();
-        return new Ast_Function_Decl(ident.value, func_type, args, body_ast);
+        Ast body_ast = parser.parse(scope);
+        return new Ast_Function_Decl(ident.value, func_type, args, body_ast, scope);
     }
 
     private List<Ast_Function_Arg> parse_function_args() {
@@ -360,7 +463,7 @@ public class Parser {
                 && (next_next.token_type != KEYWORD_TYPE && next_next.token_type != KEYWORD_FUN);
     }
 
-    private Ast_Variable_Decl parse_variable_decleration() {
+    private Ast_Variable_Decl parse_variable_decleration(Scope scope) {
         assert tokens.current().token_type == IDENTIFIER;
         LexerToken identifier = tokens.current();
 
@@ -375,13 +478,23 @@ public class Parser {
                 Maybe<Ast_Expression> init_expr = nothing();
                 if (tokens.current().token_type == EQUALS) {
                     tokens.advance();
-                    init_expr = just(parse_expr());
+                    Parser p = new Parser(tokens, new CompilerContext(), filename);
+                    init_expr = just((Ast_Expression)p.parse(scope));
                 }
-                yield new Ast_Variable_Decl(identifier.value, type, init_expr, false);
+                yield new Ast_Variable_Decl(identifier.value, type, init_expr, scope, false);
+            }
+            case COLON_EQUALS -> {
+                tokens.advance(2);
+                Parser p = new Parser(tokens, new CompilerContext(), filename);
+                Ast_Expression init_expr = (Ast_Expression) p.parse(scope);
+                yield new Ast_Variable_Decl(identifier.value, init_expr.type_info, just(init_expr), scope, false);
+
             }
 
-            default -> compilerContext.emit_error(identifier, "Error in variable declaration.");
+            default -> compilerContext.emit_error(identifier, "Error in variable declaration %s."
+                    .formatted(identifier.value));
         };
+        scope.addVariable(variable_decl);
         return variable_decl;
     }
     // </editor-fold>
@@ -415,7 +528,7 @@ public class Parser {
      * @return the type that has been parsed
      *
      */
-    private Type parse_type(List<LexerToken> toks) {
+    public Type parse_type(List<LexerToken> toks) {
         if (_DEBUG) System.out.println("Parsing " + toks.stream().map(t -> t.value).collect(Collectors.joining(" ")));
         // size 0 ???
         // simple types
@@ -434,7 +547,7 @@ public class Parser {
 
         if (toks.size() == 2) {
             if (toks.get(0).token_type == OPEN_PAREN && toks.get(1).token_type == CLOSE_PAREN) {
-                return Type.VOID;
+                return Type.UNIT;
             }
         }
 
@@ -449,6 +562,10 @@ public class Parser {
         // function types
         if (current.token_type == KEYWORD_FUN) {
             if (toks.get(1).token_type == OPEN_PAREN) {
+                boolean singleArgUnit = false;
+                if (toks.get(2).token_type == CLOSE_PAREN) {
+                    singleArgUnit = true;
+                }
                 // parse every type in between commas as arguments
                 // find arrow index
                 int open_paren_count = 0;
@@ -459,7 +576,9 @@ public class Parser {
                     if (tok.token_type == CLOSE_PAREN) close_paren_count++;
                     if (tok.token_type == LAMBDA_ARROW) {
                         if (open_paren_count == close_paren_count) {
-                            List<Type> args_type = parse_tuple_type(toks.subList(1, i));
+                            List<Type> args_type = singleArgUnit
+                                    ? List.of(Type.UNIT)
+                                    : parse_tuple_type(toks.subList(1, i));
                             Type retur_type = parse_type(toks.subList(i + 1, toks.size()));
                             return new FunctionType(args_type, retur_type);
                         }
@@ -478,6 +597,11 @@ public class Parser {
         // Tuple type
         if (current.token_type == OPEN_PAREN) {
             List<Type> types = parse_tuple_type(toks);
+            if (types.size() == 1) {
+                // fixme: single length tuple. Maybe it should be interpreted differently (like
+                // parenthesis in algebra? j
+                return types.get(0);
+            }
             return new TupleType(types);
         }
         String info = toks.stream().map(t -> t.value).collect(Collectors.joining(" "));
@@ -513,21 +637,27 @@ public class Parser {
     // </editor-fold>
 
     // <editor-fold desc="parse-expr">
-    // @Todo unary operators
+
     public Ast_Expression parse_expr() {
         ShuntingYardAlgorithm shuntingYardAlgorithmParser = new ShuntingYardAlgorithm(compilerContext);
         // if there is a function call, surround arguments with parenthesis in token stream
-        if (_DEBUG) System.out.print("Tokens read: ");
-        tokens.tokens.forEach(t -> System.out.print(t.value + " "));
-        if (_DEBUG) System.out.println();
+        if (_DEBUG)  {
+            System.out.print("Tokens read: ");
+            tokens.tokens.forEach(t -> System.out.print(t.value + " "));
+            System.out.println();
+        }
         if (!tokens.has_been_surrounded) {
             tokens.tokens = surround_function_call_argument_with_parenthesis(tokens.tokens);
             tokens.has_been_surrounded = true;
         }
-        List<LexerToken> reversePolishNotation = shuntingYardAlgorithmParser.reverse_polish_notation(new ArrayDeque<>(tokens.take_while(t -> t.token_type != SEMI_COLON)));
-        if (_DEBUG) System.out.print("Reverse polish notation: ");
-        reversePolishNotation.forEach(t -> System.out.print(t.value + " "));
-        if (_DEBUG) System.out.println();
+        Deque<LexerToken> tokens_to_parse = new ArrayDeque<>(tokens.take_while(t -> t.token_type != SEMI_COLON));
+        List<LexerToken> reversePolishNotation =
+                shuntingYardAlgorithmParser.reverse_polish_notation(tokens_to_parse);
+        if (_DEBUG) {
+            System.out.print("Reverse polish notation: ");
+            reversePolishNotation.forEach(t -> System.out.print(t.value + " "));
+            System.out.println();
+        }
         Deque<Ast_Expression> expr_stack = new ArrayDeque<>();
         for (LexerToken token : reversePolishNotation) {
             if (token.is_litteral()) {
@@ -538,8 +668,8 @@ public class Parser {
                     Ast_Unop unop = new Ast_Unop(Operator.from(token), expr);
                     expr_stack.push(unop);
                 } else {
-                     Ast_Expression left = expr_stack.pop();
                      Ast_Expression right = expr_stack.pop();
+                     Ast_Expression left = expr_stack.pop();
                      Ast_Binop binop = Ast_Binop.from_lexer_token(token, left, right);
                      expr_stack.push(binop);
                 }
@@ -557,12 +687,13 @@ public class Parser {
         }
         Ast_Expression exrp = expr_stack.pop();
         exrp.setReversePolishNotation(reversePolishNotation);
-        assert tokens.current().token_type == SEMI_COLON : "End of expression parsing is not a semi colon. %s:%s:%s".formatted(filename, reversePolishNotation.get(0).line, reversePolishNotation.get(0).col);
-        tokens.advance();
+        if (compilerContext.requiresSemiColon) {
+            assert tokens.current().token_type == SEMI_COLON : "End of expression parsing is not a semi colon. %s:%s:%s".formatted(filename, reversePolishNotation.get(0).line, reversePolishNotation.get(0).col);
+            tokens.advance();
+        }
         return exrp;
     }
 
-    // @Bug: some expression have a trailing close parenthesis, for exemple :
     private List<LexerToken> surround_function_call_argument_with_parenthesis(List<LexerToken> input) {
         int open_parenthesis_count = 0;
         int close_parenthesis_count = 0;
@@ -591,10 +722,12 @@ public class Parser {
                     case CLOSE_PAREN -> {
                         close_parenthesis_count++;
                         if (close_parenthesis_count == open_parenthesis_count && required_close_paren_to_add > 0) {
-                            list_with_added_dummy_parenthesis.add(
+                            for (int k = required_close_paren_to_add; k > 0; k--) {
+                                list_with_added_dummy_parenthesis.add(
                                     new LexerToken(Lexer_Token_Type.CLOSE_PAREN, ")",
                                             it.filename, it.line, it.col));
-                            required_close_paren_to_add--;
+                                required_close_paren_to_add--;
+                            }
                         }
                     }
                 }
@@ -642,7 +775,7 @@ public class Parser {
     public static void main(String[] args) throws Exception {
         long t1 = System.currentTimeMillis();
         CompilerContext compilerContext = new CompilerContext();
-        Lexer lexer = Lexer.newInstanceFromFile("/Users/Applin/Documents/develop/selmer/examples/expr.sel", compilerContext);
+        Lexer lexer = Lexer.newInstanceFromFile("/Users/Applin/Documents/develop/selmer/examples/func.sel", compilerContext);
         LexerTokenStream tokens = lexer.lex();
         Parser parser = new Parser(tokens, compilerContext, lexer.filename);
         parser.parse();

@@ -16,7 +16,7 @@ public class Ast_Operator extends Ast_Expression {
     }
 
     public enum Op_Type {
-        UNARY, BINARY, OPEN_PAREN, CLOSE_PAREN, ASSIGN
+        UNARY, BINARY, OPEN_PAREN, CLOSE_PAREN, ASSIGN, DOT
     }
 
     public enum Operator {
@@ -49,7 +49,8 @@ public class Ast_Operator extends Ast_Expression {
         MINUS_EQ(16, Op_Type.ASSIGN),
         PLUS_EQ(16, Op_Type.ASSIGN),
         TIMES_EQ(16, Op_Type.ASSIGN),
-        DIV_EQ(16, Op_Type.ASSIGN);
+        DIV_EQ(16, Op_Type.ASSIGN),
+        DOT(5, Op_Type.DOT);
         final int precedence;
         final Op_Type op_type;
         Operator(int precedence) {
@@ -90,6 +91,7 @@ public class Ast_Operator extends Ast_Expression {
                      case DOUBLE_AMPERSAND -> Operator.LOGICAL_AND;
                      case PIPE -> Operator.BIT_OR;
                      case DOUBLE_PIPE -> Operator.LOGICAL_OR;
+                     case DOT -> Operator.DOT;
                      default -> null; //@Cleanup
             };
         }

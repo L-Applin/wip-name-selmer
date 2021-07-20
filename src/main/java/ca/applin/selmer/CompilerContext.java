@@ -8,8 +8,9 @@ import java.lang.reflect.InvocationTargetException;
 
 public class CompilerContext {
 
-    public static final boolean _DEBUG = true;
+    public static boolean _DEBUG = true;
     public Ast ast;
+    public boolean requiresSemiColon = true;
 
     public  <T, E extends RuntimeException> T emit_error(LexerToken lexerToken, String msg) {
         return emit_error(lexerToken.formatted_filename, lexerToken.line, lexerToken.col, msg, LexerException.class);

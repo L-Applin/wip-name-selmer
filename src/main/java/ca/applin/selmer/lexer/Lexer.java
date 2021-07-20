@@ -76,6 +76,10 @@ public class Lexer {
         return new Lexer(compilerContext, "__from_string__", toParse.toCharArray());
     }
 
+    public static LexerTokenStream lexString(String toLex) {
+        return newInstance(toLex, new CompilerContext()).lex();
+    }
+
     public LexerTokenStream lex() {
         while (pos < file.length) {
             check = pos;

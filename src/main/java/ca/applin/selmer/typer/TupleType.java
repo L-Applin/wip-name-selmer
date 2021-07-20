@@ -19,4 +19,24 @@ public class TupleType extends Type {
                 + ")";
 
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        TupleType tupleType = (TupleType) o;
+        return Objects.equals(types, tupleType.types);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), types);
+    }
 }

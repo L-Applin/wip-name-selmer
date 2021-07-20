@@ -12,30 +12,55 @@ import static ca.applin.selmer.typer.Type.U64;
 import static ca.applin.selmer.typer.Type.U8;
 
 import ca.applin.selmer.NotYetImplementedException;
-import ca.applin.selmer.ast.Ast;
 import ca.applin.selmer.ast.Ast_Binop;
 import ca.applin.selmer.ast.Ast_Expression;
+import ca.applin.selmer.ast.Ast_Funtion_Call;
 import ca.applin.selmer.ast.Ast_Literral_Expr;
 import ca.applin.selmer.ast.Ast_Unop;
-import ca.applin.selmer.typer.Type;
+import java.util.function.BinaryOperator;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 public class AstInterpreter implements Interpreter {
 
+    private Function<Ast_Funtion_Call, InterpResult> dummyFunctionCallInterpreter =
+            ast -> ast.args.isEmpty() ? new InterpResult(0) : interp(ast.args.get(0));
+
+    public void setFunctionCallInterpreter(Function<Ast_Funtion_Call, InterpResult> functionCallInterpreter) {
+        this.dummyFunctionCallInterpreter = functionCallInterpreter;
+    }
+
     @Override
     public InterpResult interp(Ast_Binop ast) {
-        return switch (ast.operator) {
-            case PLUS -> new InterpResult((Integer) interp(ast.left).value + (Integer) interp(ast.right).value);
-            case TIMES -> new InterpResult((Integer) interp(ast.left).value * (Integer) interp(ast.right).value);
-            case MINUS -> new InterpResult((Integer) interp(ast.left).value - (Integer) interp(ast.right).value);
+
+        // todo: floats, other datatypes
+        BinaryOperator<Integer> op = switch (ast.operator) {
+            case PLUS -> Integer::sum;
+            case TIMES -> (i, j) -> i * j;
+            case MINUS -> (i, j) -> i - j;
+            case DIV -> (i, j) -> i / j;
+            case BIT_SHIFT_RIGHT -> (i, j) -> i >> j;
+            case BIT_SHIFT_LEFT, BIT_SHIFT_LEFT_SIGNED -> (i, j) -> i << j;
+            case BIT_SHIFT_RIGHT_SIGNED -> (i, j) -> i >>> j;
             default -> throw new NotYetImplementedException(
                     "%s not yet interpretation implementd".formatted(ast.operator.toString()));
         };
+        return binopInterp(ast, op);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> InterpResult binopInterp(Ast_Binop binop, BinaryOperator<T> f) {
+        return new InterpResult(f.apply((T)interp(binop.left).value, (T)interp(binop.right).value));
+    }
+
+    private InterpResult unopInterp(Ast_Expression expression, UnaryOperator<Object> f) {
+        return new InterpResult(f.apply(interp(expression).value));
     }
 
     @Override
     public InterpResult interp(Ast_Unop ast) {
         return switch (ast.operator) {
-            case PRE_INCRE, POST_INCR -> new InterpResult((Integer) interp(ast.expr).value + 1);
+            case PRE_INCRE, POST_INCR -> unopInterp(ast.expr, i -> (int) i + 1);
             case PRE_DECR, POST_DECR -> new InterpResult((Integer) interp(ast.expr).value - 1);
             default -> throw new NotYetImplementedException(
                     "%s not yet interpretation implementd".formatted(ast.operator.toString()));
@@ -59,6 +84,12 @@ public class AstInterpreter implements Interpreter {
         }
         throw new NotYetImplementedException("Currently only support integer type, but was given %s:%s"
             .formatted(ast.type_info, ast.litteral_value));
+    }
+
+    @Override
+    public InterpResult interp(Ast_Funtion_Call ast) {
+        // todo real implementation of function call
+        return dummyFunctionCallInterpreter.apply(ast);
     }
 
     @Override

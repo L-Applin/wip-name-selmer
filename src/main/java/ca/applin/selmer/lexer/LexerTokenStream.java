@@ -55,13 +55,19 @@ public class LexerTokenStream implements Iterable<LexerToken> {
         advance(1);
     }
 
+    public List<LexerToken> take_while(Predicate<LexerToken> predicate) {
+        return take_while(predicate, true);
+    }
+
     // replace by sublist
-    public List<LexerToken> take_while(Predicate<LexerToken> pred) {
+    public List<LexerToken> take_while(Predicate<LexerToken> pred, boolean advance) {
         List<LexerToken> toks = new ArrayList<>();
         for (int i = current_index; i < tokens.size(); i++) {
             LexerToken tok = tokens.get(i);
             if (pred.test(tok)) {
-                current_index++;
+                if (advance) {
+                    current_index++;
+                }
                 toks.add(tok);
             } else {
                 break;

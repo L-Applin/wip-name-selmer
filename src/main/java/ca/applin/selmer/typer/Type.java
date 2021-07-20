@@ -3,19 +3,24 @@ package ca.applin.selmer.typer;
 import ca.applin.selmer.ast.Ast;
 import ca.applin.selmer.lexer.LexerToken;
 import com.applin.selmer.util.ShouldNeverHappenedException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 public class Type extends Ast {
     public static final Type UNKNOWN = new Type("", false);
-    public static final Type VOID = new Type("void", true);
+    public static final Type UNIT = new Type("", true);
     public static Type simple(String type_value) { return new Type(type_value, true, false); }
     public static Type ptr(String base_type) { return new Type(base_type, true, true); }
     public static Type simple(String type_value, boolean ptr) {
         if (!ptr) return simple(type_value);
         return new Type(type_value, true, ptr);
     }
+    public static Type tuple(Type left, Type right) { return new TupleType(Arrays.asList(left, right)); }
+    public static Type tuple(List<Type> types) { return new TupleType(types); }
 
 
+    public static final Type INT = simple("Int");
     public static final Type S64 = simple("s64");
     public static final Type S32 = simple("s32");
     public static final Type S16 = simple("s16");
@@ -28,7 +33,6 @@ public class Type extends Ast {
     public static final Type F32 = simple("f32");
     public static final Type CHAR = simple("char");
     public static final Type STRING = simple("String");
-    public static final Type array(Type base) { return new ArrayType(base); }
 
     public static final Type PTR_S64  = ptr("s64");
     public static final Type PTR_S32  = ptr("s32");
@@ -42,6 +46,7 @@ public class Type extends Ast {
     public static final Type PTR_F32  = ptr("f32");
     public static final Type PTR_CHAR = ptr("char");
 
+    public static Type array(Type base) { return new ArrayType(base); }
 
     public static Type get_type_from_token(LexerToken tok) {
         if (!tok.is_litteral()) return UNKNOWN;
@@ -58,8 +63,10 @@ public class Type extends Ast {
             case PRIMITIVE_CHAR   -> CHAR;
             case PRIMITIVE_STRING -> STRING;
             case PRIMITIVE_S64, PRIMITIVE_INT -> S64; // Int is an alias for s64
+            case KEYWORD_UNIT -> UNIT;
             default -> throw new ShouldNeverHappenedException(
-                    "Type %s returns true to `is_litteral` but is not in the litteral switch case".formatted(tok.toString()));
+                    "Type %s returns true to `is_litteral` but is not in the litteral switch case"
+                            .formatted(tok.toString()));
         };
     }
 
@@ -78,7 +85,8 @@ public class Type extends Ast {
             case PRIMITIVE_CHAR   -> PTR_CHAR;
             case PRIMITIVE_S64, PRIMITIVE_INT -> PTR_S64; // Int is an alias for s64
             default -> throw new ShouldNeverHappenedException(
-                    "Type %s returns true to `is_litteral` but is not in the litteral switch cas");
+                    "Type %s returns true to `is_litteral` but is not in the litteral switch case"
+                        .formatted(tok.toString()));
         };
     }
 
@@ -91,7 +99,8 @@ public class Type extends Ast {
             case HEX_LITTERAL     -> U64;
             case CHAR_LITTERAL    -> CHAR;
             default -> throw new ShouldNeverHappenedException(
-                    "Type %s returns true to `is_litteral` but is not in the litteral switch case");
+                    "Type %s returns true to `is_litteral` but is not in the litteral switch case"
+                            .formatted(token.toString()));
         };
     }
 

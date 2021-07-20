@@ -10,9 +10,14 @@
 
 Predicate :: type = fun Any -> Bool;
 
+Either a b :: type = Left a | Right b
+
 Flag :: type = Int;
+
+Result :: type = First String | Second Int
 
 Alias :: type {
   orig :      String;
   new_value : String;
 };
+

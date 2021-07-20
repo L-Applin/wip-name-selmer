@@ -1,5 +1,6 @@
 package ca.applin.selmer.typer;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -13,6 +14,10 @@ public class FunctionType extends Type {
         super("function");
         this.arguments = arguments;
         this.return_type = return_type;
+    }
+
+    public FunctionType(Type argument, Type return_type) {
+        this(Arrays.asList(argument), return_type);
     }
 
     @Override

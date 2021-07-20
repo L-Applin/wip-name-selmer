@@ -40,14 +40,15 @@ public class LexerToken {
         KEYWORD_DELETE,
         KEYWORD_RETURN,
         KEYWORD_WITH,
+        KEYWORD_UNIT,
         OPEN_PAREN,
         CLOSE_PAREN,
         OPEN_SQUARE_BRACKET,
         CLOSE_SQUARE_BRACKET,
         OPEN_CURLY_BRACKET,
         CLOSE_CURLY_BRACKET,
-        DOT,
-        COMMA,
+        DOT(10, OPERATOR_FLAG | LEFT_ASSOC_FLAG),
+        COMMA(10, OPERATOR_FLAG),
         HASH,
         QUESTION_MARK,
         GT(OPERATOR_FLAG | BOOLEAN_OPERATOR_FLAG),
@@ -200,6 +201,7 @@ public class LexerToken {
                 || token_type == MOD
                 || token_type == AMPERSAND
                 || token_type == DOUBLE_AMPERSAND
+                || token_type == DOT
                 ;
     }
 
@@ -215,6 +217,7 @@ public class LexerToken {
         return is_litteral() || token_type == OPEN_PAREN
                             ||token_type == DOUBLE_PLUS
                             || token_type == DOUBLE_MINUS
+                            || token_type == OPEN_SQUARE_BRACKET
                 ;
 
     }
